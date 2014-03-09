@@ -1,0 +1,84 @@
+//M = mod(X,Y) returns the modulus after division of X by Y.
+func real mod(real &D, real &d)
+{   
+	return (D-d*real(int(D/(d))));
+}
+
+
+
+
+//Y = normpdf(X,mu,sigma) computes the pdf at each of the values in X using
+//the normal distribution with mean mu and standard deviation sigma. X, mu,
+//and sigma can be vectors, matrices, or multidimensional arrays that all
+//have the same size. A scalar input is expanded to a constant array with
+//the same dimensions as the other inputs. The parameters in sigma must be
+//positive.
+func real normpdf(real &X, real &mu, real &sigma)
+{
+	real sol = (1 / (sigma*sqrt(2*pi)) * 2.71828182846^( -(X-mu)^2 / (2*sigma*sigma) ));
+	return sol;
+}
+
+
+
+
+//The linspace function generates linearly spaced vectors. It is similar to the colon operator ":", but gives direct control over the number of points.
+//y = linspace(a,b) generates a row vector y of 100 points linearly spaced between and including a and b.
+//y = linspace(a,b,n) generates a row vector y of n points linearly spaced between and including a and b. For n = 1, linspace returns b.
+func real[int] linspace(real &a, real &b, int &n)
+{
+    real[int] array(n);
+    real step = (b-a) / (n-1);
+
+    for(int i=0; i<n; i++)
+    {
+        array(i) = a;
+        a += step;           // could recode to better handle rounding errors
+    }
+    return array;
+}
+
+
+
+
+//concatenates two arrays
+func real[int] cat(real[int] &a, real[int] &b)
+{
+	int na = a.n;
+	int nb = b.n;
+	a.resize(na+nb);
+	a(na+1:na+nb) = b;
+	return a;
+}
+
+
+
+
+
+//1D plot with GNUplot
+func int plot1(real[int] &x, real[int] &y, string &xlabel, string &ylabel)
+{
+	{
+	//file for gnuplot
+	ofstream gnu("plot.gp");
+	for (int i=0;i<=x.n-1;i++)
+		{
+		gnu << x[i] << " " << y[i] << endl;
+		}
+	}
+string command="gnuplot -p -e 'set xlabel \"" + xlabel + "\"; set ylabel \"" + ylabel + "\"; set nokey; plot \"plot.gp\" w l'";
+return exec(command);
+}
+
+
+
+
+//2D field output for Matlab reading
+func int exportMatlab(real[int] & u)
+{ 
+	ofstream file("Heat2.bb"); 
+	file << "2 1 1 "<< u[].n << " 2 \n"; 
+	for (int j=0;j<u[].n ; j++)
+	file << u[j] << endl;
+	return 1;
+}
