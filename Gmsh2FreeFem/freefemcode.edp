@@ -1,0 +1,6 @@
+//importing mesh
+load "gmsh"
+mesh Th = readmesh ("./geom.msh");
+
+plot (Th);
+
