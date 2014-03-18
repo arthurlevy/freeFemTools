@@ -1,0 +1,45 @@
+// this solves thermal problem with non evident BC.
+// temperature on 1 is T=x (such that we can observe 2d effects), and 2 and 4 are let free.
+// temperature on 3 is an homogeneous unknown h such that int(dy(T))=Fimp
+
+
+
+real Fimp = 0.1;// imposed flux
+
+mesh Th=square(10,10);
+
+fespace Uh(Th,P1); Uh T,TT;
+
+
+varf v(T,TT) = int2d(Th)(dx(T)*dx(TT) + dy(T)*dy(TT))
+	+ on(1, T=x)+on(3,T=0); //my pb.
+	
+varf vup(T,TT) = on(3, T=1);//adding h*vup(T,TT) results in imposing h on boundary 3
+	
+varf integ(T,TT) = int1d(Th,3)( dy(TT) ); //my integration operator
+	
+matrix KT = v(Uh,Uh);//matrix for the thermal pb
+
+real[int] KTh(Uh.ndof), KhT(Uh.ndof); //additional lines and column in the n+1 square matrix
+KTh = vup(0,Uh);//such that LHS adds vup(T,TT)*h
+KhT = integ(0,Uh);//such that LHS adds int(dy(T))
+matrix K = [[KT, KTh], [KhT', 0]]; // the global matrix
+
+
+real[int]  RHST(Uh.ndof), RHS(Uh.ndof+1) ,X(Uh.ndof+1);
+RHST = v(0,Uh);//classic
+real RHSh = Fimp;//last line is int(dy(T)) = Fimp
+RHS = [RHST, RHSh];
+
+set(K,solver=UMFPACK) ;
+X = K^-1*RHS ; //solving
+	
+real h;	
+[T[],h] = X;
+
+cout<<" h = "<<h<<endl;
+plot(T,wait=1);
+
+Uh Ty = dy(T);
+
+plot(Ty, wait=1);

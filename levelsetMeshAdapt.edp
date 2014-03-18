@@ -1,0 +1,55 @@
+// mesh adapt example by Arthur
+
+mesh Th1=square(10,10); //initial mesh
+
+fespace Vh1(Th1,P1);
+Vh1 phi1 = (x-0.5)+(y-0.5); //a Levelset on the initial mesh
+plot(phi1,Th1, wait=1);
+
+
+real eps = 1e-10;
+
+mesh Th = adaptmesh(Th1,1/((x-0.5)+(y-0.5)+eps)^2,iso=1,maxsubdiv=5,splitpbedge=0); //adapt the mesh
+
+fespace Vh(Th,P1); //working on the new mesh
+Vh u,uu; //unkown and test
+
+Vh phi = (x-0.5)+(y-0.5); //LS on new mesh
+
+plot(phi,Th,wait=1);
+
+
+
+Vh k = 0.5*(phi>=0)+10*(phi<0); //my material dependant conductivity
+
+plot(k,wait=1, fill=1);
+
+problem mypb(u,uu)= int2d(Th)(k*(dx(u)*dx(uu)+dy(u)*dy(uu)) )
+                + on(1,u=1)  + int1d(Th,3)(dy(u)*uu) - int1d(Th,3)(100*uu);
+//my conduction pb in static
+
+mypb; //solve it
+
+plot(u,wait=1, fill=1);
+
+Vh uold = u;
+
+
+
+phi = convect([1,1], 0.15, phi); //convect the LS
+Th = adaptmesh(Th1,1/(phi+eps)^2,iso=1); //re-adapt
+k = 0.5*(phi>=0)+10*(phi<0); //update k
+plot(k,wait=1, fill=1); //check it out
+
+
+mypb; // myproblem is like a function/macro it will be updated while calling it.
+plot(u,wait=1, fill=1);
+
+
+
+
+Vh1 uproj = u; // and the best : reprojection on the initial mesh
+plot(uproj,  wait=1, fill=true);
+
+Vh usum = u+20*uold; //or adding the previous steps on current mesh (will be needed for transient problem solving)
+plot(usum,  wait=1, fill=true);

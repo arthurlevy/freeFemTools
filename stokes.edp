@@ -1,0 +1,67 @@
+mesh Th=square(20,20); //initial mesh
+Th = adaptmesh(Th,1./10.,IsMetric=1,nbvx=10000);
+real dhdt = -1; //closure speed
+
+real dt = 0.05; // time step
+real eps = 1e-6;
+real err = 1;
+real mpos = 1; //mold position
+real Fimp = -1;
+int nbstep = 5;
+
+for (int i=1; i<=nbstep; i++)
+{
+	fespace Uh(Th,P2);
+	Uh u,v,uu,vv;
+	fespace Ph(Th,P1);
+	Ph p,pp;
+	
+	func real myfunc(real dhdt1)
+		{
+		solve stokes([u,v,p],[uu,vv,pp]) = int2d(Th)(dx(u)*dx(uu)+dy(u)*dy(uu) + dx(v)*dx(vv)+ dy(v)*dy(vv)
+			+ dx(uu)*p + dy(vv)*p - pp*(dx(u)+dy(v))) 
+			+ on(1,u=0,v=0) + on(3,u=0,v=dhdt1) + on(4,u=0) +on(2,v = dhdt*y/mpos) ;
+		varf vpress(vv,v) = int1d(Th,2,3) (dy(v)*1);
+		real[int] op = vpress(0,Uh); 
+		return (v[])'*op;
+		}
+		
+	err=1;	
+	int iter =1;
+	while (err>1e-6 && iter<3)
+	{		 
+	
+		iter++ ;
+		real F=myfunc(dhdt);
+		cout << "F   "<< F << endl;
+		wait = true;
+		
+		cout<< "dhdt " << dhdt << "  "<< dhdt*eps << endl; 
+		real gradF = (myfunc(dhdt+dhdt*eps) - F)/(dhdt*eps);
+		
+		dhdt -= (F-Fimp)/gradF;
+		err = abs((F-Fimp)/F);
+		cout << "error   " << err << "  " << dhdt<< "  "<<myfunc(dhdt)<< " gradf"  << gradF << endl;
+	}
+		
+	
+	
+	if ( checkmovemesh(Th,[x+u*dt,y+v*dt]) < 0.01 )
+	{
+		Th = adaptmesh(Th,1./15.,IsMetric=1,nbvx=10000);
+	}
+	
+	Th=movemesh(Th,[x+u*dt,y+v*dt]);
+	mpos += dhdt*dt;
+	cout << mpos << endl;
+		
+	plot([u,v],wait=1);
+	
+}	
+	
+
+
+
+
+
+	

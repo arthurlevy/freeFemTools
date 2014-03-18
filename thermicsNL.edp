@@ -1,0 +1,47 @@
+
+mesh Th=square(10,10);
+real a = 3;
+real b = 1;
+real eps = 1e-6;
+
+macro Grad(T) [ dx(T),  dy(T)  ]//
+
+//for (int i=1; i<=nbstep; i++) //time loop
+{
+    fespace Vh(Th,P1);
+    Vh T,TT,dT, k,sensib;
+
+    real err=1;
+    for(int n=0; n< 20; n++) // Newton Loop
+    {
+    
+   	//updating fields
+	k = T^a+b;
+
+	sensib = a*T^(a-1);
+
+	//checking for convergence
+	err = dT[].linfty;
+	cout << n << " err = " << err <<endl;
+	if(n>0 && err<eps) break;
+    
+    
+    	//defining variational forms
+        solve thermics(dT,TT) =
+            int2d(Th) (k * (Grad(dT)'*Grad(TT) )   + sensib *(Grad(TT)'*Grad(T))*dT  )
+            + on (1,dT=0) //+on(3,dT=0)
+            - int2d(Th)(k * (Grad(T)'*Grad(TT) ))
+            
+            +int1d(Th,3) ( k * dy(dT)*TT + sensib*dy(T)*dT*TT)
+            -int1d(Th,3) ( (k*dy(T)-25) * TT)  ;
+	
+	T[]-=dT[];
+
+	}           
+
+
+plot(T,wait=1);
+
+
+
+}

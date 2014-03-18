@@ -1,0 +1,78 @@
+// This solves a Darcy flow for a compressible ideal gaz at constant temperature.
+// ie density proportional to pressure.
+// the equation to solve is (Darcy law and continuity) reduces to :
+//   \div (P . K/mu . \grad(P)) =  0
+// where K is the permeability tensor and mu the fluid viscosity. P is the pressure.
+// the spatial problem is solved using Finite Element with library FreeFem++. (LGPL)
+// this is a non linear problem that is solved using a Newton Raphson (NR) method.
+// test case hereunder is for Jim case.
+// A.L nov. 10 2012
+
+real L0 = 75e-3 + 25e-3; //length
+real h0 = 1e-3; //thickness
+real Lal = 25e-3; // length of aluminum wall
+
+int nth = 10;//number of element in thickness;
+
+real kx = 2.2e-14/1.85e-5; //this is actually Kx/mu
+real ky = 1.4e-16/1.85e-5; //this is then Ky/mu
+
+real PressIn = 1; //input pressure
+real PressOut = 50e-3; //output pressure
+
+macro OutputBondary right// Can be either "up" or "right"
+
+
+//////////////////////////////////
+//defining boundaries
+border down(t=0,L0-Lal) {x=t; y=0;}
+border down2(t=L0-Lal,L0) {x=t; y=0;}
+border right(t=0,h0) {x=L0; y=t;}
+border up(t=L0,0){x=t;y=h0;}
+border left(t=h0,0){x=0;y=t;}
+
+//number of elements in :
+int nl = nth*L0/h0;//length
+int nal = nth*Lal/h0;//aluminum wall
+
+//meshing
+mesh Th=buildmesh(down(nl-nal)+down2(nal)+right(nth)+up(nl)+left(nth));
+
+macro velocity(P) [ kx*dx(P),  ky*dy(P)  ]//
+macro Grad(P) [ dx(P),  dy(P)  ]//
+
+fespace Vh(Th,P1);//Linear P1 interpolation
+Vh P,PP,dP; //P is current pressure, PP is test function, dP is NR step (unknown)
+
+//Applying BC by solving a linear pb with dirichlet BC.
+solve BC(P,PP) =
+            int2d(Th) (Grad(P)'*Grad(PP))
+            + on(down,P=PressIn) +on(OutputBondary,P=PressOut)  ;
+
+real eps = 1e-6; //tolerance for Newton Raphson
+real err=1; //initial
+
+for(int n=0; n<40; n++) // Newton Raphson Loop
+{ 
+	//checking for convergence
+	err = dP[].linfty; //norm of NR step
+	cout << n << " err = " << err <<endl;
+	if(n>0 && err<eps) break;
+    
+    	//solving variational form
+        solve thermics(dP,PP) =
+            int2d(Th) (2 * (velocity(dP)'*Grad(PP) )*P  ) //this is my bilinear form, ie tangent matrix.
+            - int2d(Th)( (velocity(P)'*Grad(PP) )*P ) // this is the linear form, ie current residual.
+            + on (down,dP=0) +on(OutputBondary,dP=0)  ;// we don't affect the Dirichlet BC
+	
+	P[]-=dP[]; // take the NR step
+}  
+         
+//POSTPROCESS
+Vh u = -kx*dx(P), v = -ky*dy(P); //Darcy law for velocity
+plot(P,fill=1,cmm="Pressure",value=1, wait=1);
+
+//what is the flow?
+varf myflowlinearform(dP,PP) = int1d(Th,right) (-kx*dx(PP));
+real[int] myflowvect = myflowlinearform(0,Vh);
+cout <<endl<<"----- Inlet Flow = "<<myflowvect'*P[]<<" [m3/s]-----"<<endl<< endl;
