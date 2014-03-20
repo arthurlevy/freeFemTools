@@ -1,0 +1,105 @@
+//this freefem++ file solves a transient conduction problem in a plate.
+
+include "cube.idp"
+load "medit"
+
+
+real t = 1e-2; //thickness
+real w = 5e-2; //width
+real d = 5e-2; //depth
+
+real kx=0.6; //non isotropic k
+real ky = 5.7;
+real kz = 0.6;
+
+real rhoc  = 1780*1700; //heat capacity
+
+real Tinit = 20; //initial temp
+real Tp = 200; // processing temp
+real phi = 1e4; //heat flux applied
+real Tair = 20; //air temperature
+
+real h = 20;// exchange coefficient
+
+real dt = (rhoc/kz)*t^2 / 40;//time step
+int nbstep = 40; //number of time steps
+real[int] CentralT(nbstep), tspan(nbstep);
+
+//geometry
+int[int]  NN=[15,15,10]; //  the number of nodes in the 3 direction
+real [int,int]  BB=[[-w/2,w/2],[-d/2,d/2],[0,t]]; // bounding bax  
+int [int,int]  L=[[1,2],[3,4],[5,6]]; // the label of the 6 face left,right, front, back, down, right
+ 
+//meshing
+mesh3  Sh=Cube(NN,BB,L);
+mesh T2d=square(NN(1),NN(1),[x*w-w/2,y*d-d/2]);
+
+
+// interpolations
+fespace Vh(Sh,P1);
+Vh T,Told,TT; //current temperature, previous temperature, test function 
+
+fespace V2d(T2d,P1); //for 2d plots
+V2d Tmid; // temperature at the central plane
+
+Told = Tinit;
+
+
+for (int it=0; it < nbstep ; it++)
+{
+	solve thermics(T,TT)=
+		int3d(Sh)(  dx(T)*kx*dx(TT) + dy(T)*ky*dy(TT) + dz(T)*kz*dz(TT) )  //diffusion terms
+		+ int3d(Sh) (rhoc/dt * T * TT ) + int3d(Sh) ( - rhoc/dt * Told * TT) //evolution terms
+		+ int2d(Sh,1,2,3,4)(h * T * TT) - int2d(Sh,1,2,3,4)(h * Tair * TT) //boundary air exchange
+//		- int2d(Sh,5,6)(phi * TT) ; // boundary power
+		+ on(5,6,T=Tp) ; //temperature imposed at the mold contact
+		
+		
+	Told = T;
+	
+	real[int] viso(19);
+	for (int i=0;i<19;i++) viso[i]=20+i*10;
+
+	//plot(T,wait=1, fill=1, value=1, viso=viso(0:18), cmm="time = "+dt*(it+1) );
+	
+
+
+	
+	//cut at x=y=0
+	/*
+	real[int] xx(50), yy(50);
+	for (int i=0;i<50;i++)
+	{
+		x=0; y=0; z=t*i/49.;
+		xx[i]=z;
+		yy[i]=T; //value of T at point (0 , 0., t*i/49)
+	}
+	*/
+	//plot([xx, yy], value=1, wait=1,cmm="time = "+dt*(it+1));
+	
+	
+	// plot midsection:
+	{
+	z = t/2;
+	Tmid = T(x,y,t/2);
+	tspan(it) = dt*(it+1);
+	CentralT(it) = T(0,0,t/2);
+	plot(Tmid, value=1, fill=1,viso=viso(0:18),cmm="time = "+dt*(it+1));
+
+	}
+}
+
+
+// line plot
+{
+//file for gnuplot
+ofstream gnu("plot.gp");
+gnu << "0" << " " << Tinit << endl;
+for (int i=0;i<=nbstep-1;i++)
+	{
+	gnu << tspan[i] << " " << CentralT[i] << endl;
+	}
+}
+string command="gnuplot -e 'set xlabel \"time\"; set ylabel \"temperature\";set nokey; plot \"plot.gp\" w l; pause 500'";
+exec(command);
+
