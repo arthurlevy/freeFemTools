@@ -46,7 +46,7 @@ func real[int] cat(real[int] &a, real[int] &b)
 {
 	int na = a.n;
 	int nb = b.n;
-	a.resize(na+nb);
+	real[int] res = a.resize(na+nb);
 	a(na+1:na+nb) = b;
 	return a;
 }
@@ -56,7 +56,7 @@ func real[int] cat(real[int] &a, real[int] &b)
 
 
 //1D plot with GNUplot
-func int plot1(real[int] &x, real[int] &y, string &xlabel, string &ylabel)
+func int plot1(real[int] &x, real[int] &y, string xlabel, string ylabel)
 {
 	{
 	//file for gnuplot
@@ -71,8 +71,35 @@ return exec(command);
 }
 
 
+//store a 2D-array into a file
+func int TwoDArrayWrite(real[int] &x, real[int] &y,string filename)
+{
+	ofstream ofile(filename);
+	for (int i=0;i<=x.n-1;i++)
+	{
+		ofile << x[i] << " " << y[i] << endl;
+	}
+	return 1;
+}
 
 
+
+//Read a 1D-Array from a text file
+func real[int] OneDArrayRead(string &filename)
+{
+	ifstream ifile(filename);
+	int n;
+	ifile >> n;
+	real[int] res(n);
+	for (int i=0;i<n;++i)
+	{
+		ifile>> res(i);
+	}
+	return res;
+}
+
+
+/*
 //2D field output for Matlab reading
 func int exportMatlab(real[int] & u)
 { 
@@ -82,3 +109,4 @@ func int exportMatlab(real[int] & u)
 	file << u[j] << endl;
 	return 1;
 }
+*/
