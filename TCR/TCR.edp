@@ -1,0 +1,77 @@
+//two meshes in contact at x=1
+mesh meshleft=square(20,20);
+mesh meshright=square(18,18,[x+1,y]);
+
+plot(meshright);
+plot(meshleft);
+// Boundary mesh. ideally we would limit it to the interface boundary.
+//I do not know how to do that...mesh meshinterf = emptymesh(meshright);
+
+// FE spaces
+fespace spaceleft(meshleft,P1);fespace spaceright(meshright,P1);
+fespace SpaceBound(meshinterf,P1);
+spaceleft uleft,uuleft;
+spaceright uright,uuright;SpaceBound phi, phiphi;
+
+real TCR = 0.5;
+
+
+
+macro grad(field)[dx(field),dy(field)]//2D gradient
+macro normal[N.x, N.y]//outward normal on a boundary
+
+
+
+////////VARIATIONAL FORMS
+//right Problemvarf rightpb(uright,uuright) =
+int2d(meshright)( grad(uright)'*grad(uuright) ) +int1d(meshright,4)(grad(uright)'*[-1,0]*uuright) - int1d(meshright,4)(phi*uuright)
++ on(2,uright= 0 ) ;
+
+//left pb
+varf leftpb(uleft,uuleft) =int2d(meshleft)( grad(uleft)'*grad(uuleft) ) +int1d(meshleft,2)(grad(uleft)'*[1,0]*uuleft) + int1d(meshleft,2)(phi*uuleft)
++ on(4,uleft= 1 );
+
+
+//additional condition uleft=uright on boundary
+varf vphi(phi,phiphi) =
+	int1d(meshinterf,4) (  (uright-uleft) * phiphi)
+	+int1d(meshinterf,1,2,3,4) (  -TCR * phi*phiphi);//trick to ensure non singularity
+	//we don(t care about phi on boundaries other than 4
+
+//crossed terms are actually all +/- the same
+varf crossterms(S,T) = int1d(meshinterf,4)(S*T);
+varf crosstermsminus(S,T) = int1d(meshinterf,4)(-S*T);
+
+
+
+
+
+/////ASSEMBLING VECTOR
+real[int] R1 = rightpb(0,spaceright);
+real[int] R2 = leftpb(0,spaceleft);
+real[int] Rphi = vphi(0,SpaceBound);
+
+real[int] R = [R1,R2,Rphi];
+
+//////ASSEMBLING MATRIX
+matrix K1 = rightpb(spaceright,spaceright);
+matrix K2 = leftpb(spaceleft,spaceleft);
+matrix Kphi = vphi(SpaceBound,SpaceBound);
+
+
+//cross terms
+matrix Kphi1 = crossterms(SpaceBound,spaceright);
+matrix Kphi2 = crosstermsminus(SpaceBound,spaceleft);
+
+matrix K1phi = crossterms(spaceright,SpaceBound);
+matrix K2phi = crosstermsminus(spaceleft, SpaceBound);
+
+//concatenate
+matrix K = [ [K1, 0, Kphi1],
+			 [0, K2, Kphi2] ,
+			 [K1phi,K2phi,Kphi]   ];
+//solve
+set(K, solver=UMFPACK);real[int] X  = K^-1*R;
+
+//update
+[uright[],uleft[],phi[]] = X;plot(uleft,uright,wait=true);
