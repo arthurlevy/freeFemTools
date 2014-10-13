@@ -1,11 +1,11 @@
 //two meshes in contact at x=1
 mesh meshleft=square(20,20);
-mesh meshright=square(18,18,[x+1,y]);
+mesh meshright=square(19,19,[x+1,y]);
 
 plot(meshright);
 plot(meshleft);
 // Boundary mesh. ideally we would limit it to the interface boundary.
-//I do not know how to do that...mesh meshinterf = emptymesh(meshright);
+//I do not know how to do that...mesh meshinterf = emptymesh(meshleft);
 
 // FE spaces
 fespace spaceleft(meshleft,P1);fespace spaceright(meshright,P1);
@@ -13,8 +13,22 @@ fespace SpaceBound(meshinterf,P1);
 spaceleft uleft,uuleft;
 spaceright uright,uuright;SpaceBound phi, phiphi;
 
-real TCR = 0.5;
 
+//trick to handle the dofs on useless boundaries (1,2 and 3)
+varf von(u,v)= on(1,4,3,u=1);
+real[int] on1=von(0,SpaceBound, tgv=1); // one on boundary dofs
+int[int] I(SpaceBound.ndof); // to get indices of boundary dofs
+int k=0;
+for (int i=0;i<SpaceBound.ndof;++i)
+{
+	if( on1[i]) I[i]=-1; // set -1 at indices on boundary dofs
+	else I[i]=k++; //numbers all remaining dofs starting at 0
+}
+
+
+
+
+real TCR = 0.5;
 
 
 macro grad(field)[dx(field),dy(field)]//2D gradient
@@ -34,44 +48,69 @@ varf leftpb(uleft,uuleft) =int2d(meshleft)( grad(uleft)'*grad(uuleft) ) +int1d
 
 //additional condition uleft=uright on boundary
 varf vphi(phi,phiphi) =
-	int1d(meshinterf,4) (  (uright-uleft) * phiphi)
-	+int1d(meshinterf,1,2,3,4) (  -TCR * phi*phiphi);//trick to ensure non singularity
-	//we don(t care about phi on boundaries other than 4
+	int1d(meshinterf,2) (  (uright-uleft) * phiphi)
+	+int1d(meshinterf,2) (  -TCR * phi*phiphi);
 
 //crossed terms are actually all +/- the same
-varf crossterms(S,T) = int1d(meshinterf,4)(S*T);
-varf crosstermsminus(S,T) = int1d(meshinterf,4)(-S*T);
-
-
+varf crossterms(S,T) = int1d(meshinterf,2)(S*T);
+varf crosstermsminus(S,T) = int1d(meshinterf,2)(-S*T);
 
 
 
 /////ASSEMBLING VECTOR
 real[int] R1 = rightpb(0,spaceright);
 real[int] R2 = leftpb(0,spaceleft);
-real[int] Rphi = vphi(0,SpaceBound);
+real[int] RphiFull = vphi(0,SpaceBound);
+
+//  Remove from Rphi the rows from boundaries 1,2 and 3
+real[int] Rphi(k);
+for (int k2=0;k2<SpaceBound.ndof;k2++)
+{
+	if(I[k2]!=-1) Rphi(I[k2])=RphiFull[k2];
+}
 
 real[int] R = [R1,R2,Rphi];
 
+
+
+
 //////ASSEMBLING MATRIX
-matrix K1 = rightpb(spaceright,spaceright);
-matrix K2 = leftpb(spaceleft,spaceleft);
+matrix Kright = rightpb(spaceright,spaceright);
+matrix Kleft = leftpb(spaceleft,spaceleft);
 matrix Kphi = vphi(SpaceBound,SpaceBound);
 
-
 //cross terms
-matrix Kphi1 = crossterms(SpaceBound,spaceright);
-matrix Kphi2 = crosstermsminus(SpaceBound,spaceleft);
+matrix Kphiright = crossterms(SpaceBound,spaceright);
+matrix Kphileft = crosstermsminus(SpaceBound,spaceleft);
 
-matrix K1phi = crossterms(spaceright,SpaceBound);
-matrix K2phi = crosstermsminus(spaceleft, SpaceBound);
+matrix Krightphi = crossterms(spaceright,SpaceBound);
+matrix Kleftphi = crosstermsminus(spaceleft, SpaceBound);
+
+
+
+/////  Remove from Kphi the rows and columns from boundaries 1,2 and 3
+Kphi = Kphi(I^-1,I^-1);
+
+//we keep all dofs in right and left meshes
+int[int] Iright = 0:spaceright.ndof-1 ; 
+int[int] Ileft = 0:spaceleft.ndof-1 ;
+
+Kphiright = Kphiright(Iright^-1,I^-1);
+Kphileft = Kphileft(Ileft^-1,I^-1);
+Krightphi = Krightphi(I^-1,Iright^-1);
+Kleftphi = Kleftphi(I^-1,Ileft^-1);
+
 
 //concatenate
-matrix K = [ [K1, 0, Kphi1],
-			 [0, K2, Kphi2] ,
-			 [K1phi,K2phi,Kphi]   ];
+matrix K = [ [Kright, 0, Kphiright],
+			 [0, Kleft, Kphileft] ,
+			 [Krightphi,Kleftphi,Kphi]  ];
+//cout << "K" << K << endl;
 //solve
-set(K, solver=UMFPACK);real[int] X  = K^-1*R;
+set(K, solver=sparsesolver);
+
+//cout << "R" << R << endl;real[int] X  = K^-1*R;
+
 
 //update
-[uright[],uleft[],phi[]] = X;plot(uleft,uright,wait=true);
+[uright[],uleft[]] = X(0:spaceleft.ndof+spaceright.ndof-1);plot(uleft,uright,wait=true);
