@@ -8,21 +8,21 @@ plot(meshleft);
 //I do not know how to do that...mesh meshinterf = emptymesh(meshleft);
 
 // FE spaces
-fespace spaceleft(meshleft,P1);fespace spaceright(meshright,P1);
-fespace SpaceBound(meshinterf,P1);
+fespace spaceleft(meshleft,P2);fespace spaceright(meshright,P2);
+fespace SpaceBound(meshinterf,P2);
 spaceleft uleft,uuleft;
 spaceright uright,uuright;SpaceBound phi, phiphi;
 
 
 //trick to handle the dofs on useless boundaries (1,2 and 3)
-varf von(u,v)= on(1,4,3,u=1);
+varf von(u,v)= on(2,u=1);
 real[int] on1=von(0,SpaceBound, tgv=1); // one on boundary dofs
 int[int] I(SpaceBound.ndof); // to get indices of boundary dofs
 int k=0;
 for (int i=0;i<SpaceBound.ndof;++i)
 {
-	if( on1[i]) I[i]=-1; // set -1 at indices on boundary dofs
-	else I[i]=k++; //numbers all remaining dofs starting at 0
+	if( on1[i]) I[i]=k++; // set -1 at indices on boundary dofs
+	else I[i]=-1; //numbers all remaining dofs starting at 0
 }
 
 
