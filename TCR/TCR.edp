@@ -1,6 +1,8 @@
+load "iovtk"
+
 //two meshes in contact at x=1
-mesh meshleft=square(20,20);
-mesh meshright=square(19,19,[x+1,y]);
+mesh meshleft=square(4,4);
+mesh meshright=square(3,3,[x+1,y]);
 
 plot(meshright);
 plot(meshleft);
@@ -114,3 +116,7 @@ set(K, solver=sparsesolver);
 
 //update
 [uright[],uleft[]] = X(0:spaceleft.ndof+spaceright.ndof-1);plot(uleft,uright,wait=true);
+
+int[int] fforder2=[1,1,1];
+savevtk("TCRleft.vtk", meshleft,uleft,order=fforder2);
+savevtk("TCRright.vtk", meshright,uright,order=fforder2);
