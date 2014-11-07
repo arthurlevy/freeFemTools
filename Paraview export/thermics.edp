@@ -1,0 +1,68 @@
+//this freefem++ file solves a transient conduction problem in a plate.
+include "util.idp"
+load "iovtk"
+
+real t = 1; //thickness
+real w = 2; //width
+real d = 3; //depth
+
+
+real Tinit = 0; //initial temp
+real Tp = 10; // processing temp
+real phi = 10; //heat flux applied
+real Tair = 0; //air temperature
+
+
+real dt = 0.01;
+real time=0;
+
+int nbstep = 10; //number of time steps
+real[int] tspan(nbstep);
+
+//geometry
+int[int]  NN=[15,15,10]; //  the number of nodes in the 3 direction
+real [int,int]  BB=[[-w/2,w/2],[-d/2,d/2],[0,t]]; // bounding bax  
+int [int,int]  L=[[1,2],[3,4],[5,6]]; // the label of the 6 face left,right, front, back, down, right
+
+//meshing
+mesh3  Sh=Cube(NN,BB,L);
+
+// interpolations
+
+fespace Vh(Sh,P1);
+Vh T,Told,TT; //current temperature, previous temperature, test function 
+
+fespace Vh0(Sh,P0);
+Vh0 regionTag=region;
+
+int[int] myorder = [1,0];
+
+
+Told = Tinit;
+
+real h = 0.5;
+
+for (int it=0; it < nbstep ; it++)
+{
+	time+=dt;
+	
+	solve thermics(T,TT)=
+		int3d(Sh)(  dx(T)*dx(TT) + dy(T)*dy(TT) + dz(T)*dz(TT) )  //diffusion terms
+		+ int3d(Sh) (1/dt * T * TT ) + int3d(Sh) ( - 1/dt * Told * TT) //evolution terms
+		+ int2d(Sh,1,2,3,4)(h * T * TT) - int2d(Sh,1,2,3,4)(h * Tair * TT) //boundary air exchange
+//		- int2d(Sh,5,6)(phi * TT) ; // boundary power
+		+ on(5,6,T=Tp) ; //temperature imposed at the mold contact
+		
+		
+	Told = T;
+
+	savevtk("Results/results" + it + ".vtk", Sh, T, regionTag, dataname="temperature regionTag", order=myorder);
+	real timeiterreal = it;
+	append2(timeiterreal, time, "Results/timeHistory.txt");
+}
+
+
+
+
+
+
