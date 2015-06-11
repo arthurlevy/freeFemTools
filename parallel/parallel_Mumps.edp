@@ -1,0 +1,87 @@
+//invoked with command ff-mpirun -np 4 arthur.edp -glut ffglut -n 15
+
+load "msh3"
+include "getARGV.idp"
+
+func f= 1. ; // right hand side function
+int nn=getARGV("-n",10);//number of nodes per dimension
+
+//meshing
+mesh Th2D=square(nn,nn);
+int[int] refm=[1,1,2,1,3,1,4,1];
+int[int] refu=[0,1];
+mesh3 Th=buildlayers(Th2D,nn,zbound=[0.,1.],labelmid=refm,labelup=refu,labeldown=refu);
+
+
+cout << "## Partitionning mesh ##" << endl
+	<< "in " << mpisize << " subdomains." << endl;
+
+load "metis";
+int[int] nupart(Th.nt);
+fespace P0FESpace(Th,P0) ;
+P0FESpace parttag;
+metisnodal(parttag[],Th, mpisize); //call metis partionner
+Th = change(Th,  fregion = 1+parttag ); //change region number to partition number in mesh Th
+
+
+cout << "  *** Th: vol " << mpirank << " "<< Th.mesure << "  " << int3d(Th,mpirank+1)(1.) << endl;
+
+fespace Vh(Th,P2) ; // P2 FE space
+Vh uh ; // unkown and test function.
+
+
+real time1,time2,time3,time4,time5,time6;
+
+// compute only on region number = processor number 
+varf vlaplace(uh,vh) = // definition de problem
+      int3d(Th,mpirank+1)( (dx(uh)*dx(vh) + dy(uh)*dy(vh)+ dz(uh)*dz(vh)) ) // bil. form
+    	+ int3d(Th,mpirank+1)( vh*f) + on(1,uh=0) ;
+
+matrix A;
+real [int] b(Vh.ndof);
+
+
+//matrix
+time1=clock();
+matrix AA = vlaplace(Vh,Vh,solver=CG) ;
+time1=clock()-time1;
+//gather matrices
+time5=clock();
+mpiAllReduce(AA,A,mpiCommWorld,mpiSUM);
+time5=clock()-time5;
+
+//vector
+time3=clock();
+real [int] bb = vlaplace(0, Vh);
+time3=clock()-time3;
+//gather vectors
+time6=clock();
+mpiAllReduce(bb,b,mpiCommWorld,mpiSUM);
+time6=clock()-time6;
+
+// factorize
+time2=clock();
+set(A,solver=sparsesolver) ; 
+time2=clock()-time2;
+
+// resolution
+time4 = clock();
+uh[] = A^-1*b ; 
+time4=clock()-time4;
+
+
+if( mpirank==0) plot(uh);
+
+cout << "======================================" << endl;
+cout << " CPU TIME :                  " << endl;
+cout << " assemble matrix             " << time1 << endl;
+cout << " factorization               " << time2 << endl;
+cout << " assemble vect               " << time3 << endl;
+cout << " solve                       " << time4 << endl;
+cout << " gather matrix               " << time5 << endl;
+cout << " gather vector               " << time6 << endl;
+cout << "======================================" << endl;
+
+
+
+
