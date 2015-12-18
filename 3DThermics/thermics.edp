@@ -56,6 +56,7 @@ for (int it=0; it < nbstep ; it++)
 		
 		
 	Told = T;
+	T = convect([25e-5,25e-5,0], -dt, T);
 	
 	real[int] viso(19);
 	for (int i=0;i<19;i++) viso[i]=20+i*10;

@@ -1,0 +1,84 @@
+//two meshes in contact at x=1
+mesh meshleft=square(20,20);
+mesh meshright=square(15,15,[x+1,y]);
+
+// Boundary mesh. ideally we would limit it to the interface boundary.
+//I do not know how to do that...
+mesh meshinterf = emptymesh(meshright);
+
+// FE spaces
+fespace spaceleft(meshleft,P1);
+fespace spaceright(meshright,P1);
+fespace SpaceBound(meshinterf,P1);
+
+spaceleft uleft=0,uuleft;
+spaceright uright,uuright;
+SpaceBound lambda=1, llambda;
+
+real tgv = 1e30;
+
+macro grad(field)[dx(field),dy(field)]//2D gradient
+macro normal[N.x, N.y]//outward normal on a boundary
+
+
+
+////////VARIATIONAL FORMS
+//right Problem
+varf rightpb(uright,uuright) =
+int2d(meshright)( grad(uright)'*grad(uuright) ) - int2d(meshright)( uuright)
++int1d(meshright,4)(grad(uright)'*normal*uuright) - int1d(meshright,4)(tgv*(uright-uleft)*uuright)
++ on(1,2,3,uright= 0 ) ;
+
+//left pb
+varf leftpb(uleft,uuleft) =
+int2d(meshleft)( grad(uleft)'*grad(uuleft) ) - int2d(meshleft)( uuleft)
++int1d(meshleft,2)(grad(uleft)'*normal*uuleft) + int1d(meshleft,2)(tgv(uleft-uright)*uuleft)
++ on(1,3,4,uleft= 0 );
+
+
+//additional condition uleft=uright on boundary
+varf vlambda(lambda,llambda) =
+    int1d(meshinterf,4) (  (uright-uleft) *llambda)
+    +int1d(meshinterf,1,2,3) (  lambda*llambda);//trick to ensure non singularity
+    //we don(t care about lambda on boundaries other than 4
+
+//crossed terms are actually all +/- the same
+varf crossterms(S,T) = int1d(meshinterf,4)(S*T);
+varf crosstermsminus(S,T) = int1d(meshinterf,4)(-S*T);
+
+
+
+
+
+/////ASSEMBLING VECTOR
+real[int] R1 = rightpb(0,spaceright);
+real[int] R2 = leftpb(0,spaceleft);
+real[int] Rlambda = vlambda(0,SpaceBound);
+
+real[int] R = [R1,R2];
+
+//////ASSEMBLING MATRIX
+matrix K1 = rightpb(spaceright,spaceright);
+matrix K2 = leftpb(spaceleft,spaceleft);
+matrix Klambda = vlambda(SpaceBound,SpaceBound);
+
+
+//cross terms
+matrix Klambda1 = crossterms(SpaceBound,spaceright);
+matrix Klambda2 = crosstermsminus(SpaceBound,spaceleft);
+
+matrix K1lambda = crossterms(spaceright,SpaceBound);
+matrix K2lambda = crosstermsminus(spaceleft, SpaceBound);
+
+//concatenate
+matrix K = [ [K1, 0],
+             [0, K2]  ];
+
+//solve
+set(K, solver=UMFPACK);
+real[int] X  = K^-1*R;
+
+//update
+[uright[],uleft[]] = X;
+
+plot(uleft,uright,wait=true);
