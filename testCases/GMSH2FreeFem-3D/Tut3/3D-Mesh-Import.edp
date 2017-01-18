@@ -1,0 +1,10 @@
+load "gmsh";	// Load the GMSH package in FreeFem++
+load "msh3"		// Load the 3Dmesh package in FreeFem++
+
+mesh3 ImportedMesh = gmshload3("Mesh.msh");	// Import and mesh the .msh generated mesh in FreeFem++
+
+plot(ImportedMesh);	// Plot the imported mesh
+
+// To check the periodic compatibility of the mesh
+
+fespace FEcell(ImportedMesh,P1,periodic = [[1,y,z],[3,y,z],[2,x,z],[4,x,z],[5,x,y],[6,x,y]]);

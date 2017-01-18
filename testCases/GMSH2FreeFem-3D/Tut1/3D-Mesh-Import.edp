@@ -1,0 +1,6 @@
+load "gmsh";	// Load the GMSH package in FreeFem++
+load "msh3"		// Load the 3Dmesh package in FreeFem++
+
+mesh3 ImportedMesh = gmshload3("Square-Mesh.msh");	// Import and mesh the .msh generated mesh in FreeFem++
+
+plot(ImportedMesh);	// Plot the imported mesh

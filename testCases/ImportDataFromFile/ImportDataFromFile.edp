@@ -1,0 +1,17 @@
+int n = 0;	// Size of the future vector containing the imported data
+
+ifstream file0("File.txt");			// Name of the file from which data is imported
+file0 >> n ;						// The vector size is read from the file
+
+cout << n << endl;					// n is 
+
+real[int] vector(n);				// A vector of size n is created in order to contain the data in the file
+
+for(int i=0;i<n;i++)
+{
+
+	file0 >> vector(i);
+
+}
+
+cout << vector << endl;

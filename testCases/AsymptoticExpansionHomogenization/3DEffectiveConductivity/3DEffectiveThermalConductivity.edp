@@ -1,0 +1,95 @@
+// Mesh Import
+
+load "gmsh";
+load "msh3"
+
+verbosity = 0;
+mesh3 CellMesh = gmshload3("PeriodicCell.msh");
+
+plot(CellMesh);
+
+// Thermal properties
+
+real regionmatrix 	= 1;
+real regionfibres 	= 2;
+
+real kfibres = 5.0;	// W.m^-1.K^-1
+real kmatrix = 0.2;	// W.m^-1.K^-1
+
+// Heterogeneous conductivity tensor
+
+fespace ConductTensor(CellMesh,P0);
+ConductTensor k11,k12,k13,k21,k22,k23,k31,k32,k33;
+
+k11 = kfibres*(region==regionfibres)+kmatrix*(region==regionmatrix);
+k12 = 0;
+k13 = 0;
+
+k21 = 0;
+k22 = kfibres*(region==regionfibres)+kmatrix*(region==regionmatrix);
+k23 = 0;
+
+k31 = 0;
+k32 = 0;
+k33 = kfibres*(region==regionfibres)+kmatrix*(region==regionmatrix);
+
+// Finite element space of P1 function over the periodic cell
+
+fespace FEcell(CellMesh,P1,periodic = [[1,y,z],[3,y,z],[2,x,z],[4,x,z],[5,x,y],[6,x,y]]);
+
+// Declaration of the searched functions wi and the test function ww
+
+FEcell w1,w2,w3,ww;
+
+// Computation of the different functions wi, solutions of the "cell-problem"
+
+solve calculw1(w1,ww, solver = GMRES) = 
+			 int3d(CellMesh)(k11*dx(w1)*dx(ww)+k12*dy(w1)*dx(ww)+k13*dz(w1)*dx(ww))
+			+int3d(CellMesh)(k21*dx(w1)*dy(ww)+k22*dy(w1)*dy(ww)+k23*dz(w1)*dy(ww))
+			+int3d(CellMesh)(k31*dx(w1)*dz(ww)+k32*dy(w1)*dz(ww)+k33*dz(w1)*dz(ww))
+			+int3d(CellMesh)(k11*dx(ww)+k21*dy(ww)+k31*dz(ww))
+			+int3d(CellMesh)(w1*ww)
+			;
+			
+solve calculw2(w2,ww, solver = GMRES) = 
+			 int3d(CellMesh)(k11*dx(w2)*dx(ww)+k12*dy(w2)*dx(ww)+k13*dz(w2)*dx(ww))
+			+int3d(CellMesh)(k21*dx(w2)*dy(ww)+k22*dy(w2)*dy(ww)+k23*dz(w2)*dy(ww))
+			+int3d(CellMesh)(k31*dx(w2)*dz(ww)+k32*dy(w2)*dz(ww)+k33*dz(w2)*dz(ww))
+			+int3d(CellMesh)(k12*dx(ww)+k22*dy(ww)+k32*dz(ww))
+			+int3d(CellMesh)(w2*ww)
+			;
+			
+solve calculw3(w3,ww, solver = GMRES) = 
+			 int3d(CellMesh)(k11*dx(w3)*dx(ww)+k12*dy(w3)*dx(ww)+k13*dz(w3)*dx(ww))
+			+int3d(CellMesh)(k21*dx(w3)*dy(ww)+k22*dy(w3)*dy(ww)+k23*dz(w3)*dy(ww))
+			+int3d(CellMesh)(k31*dx(w3)*dz(ww)+k32*dy(w3)*dz(ww)+k33*dz(w3)*dz(ww))
+			+int3d(CellMesh)(k13*dx(ww)+k23*dy(ww)+k33*dz(ww))
+			+int3d(CellMesh)(w3*ww)
+			;
+			
+// Computation of the effective conductivity tensor components
+
+real volumecell = int3d(CellMesh)(1.0);
+
+real k11cell = int3d(CellMesh)((k11*(1+dx(w1))+k12*dy(w1)+k13*dz(w1)))/volumecell;
+
+real k12cell = int3d(CellMesh)((k12*(1+dy(w2))+k11*dx(w2)+k13*dz(w2)))/volumecell;
+
+real k13cell = int3d(CellMesh)((k13*(1+dz(w3))+k11*dx(w3)+k12*dy(w3)))/volumecell;
+
+real k21cell = int3d(CellMesh)((k22*dy(w1)+k21*(1+dx(w1)+k23*dz(w1))))/volumecell;
+
+real k22cell = int3d(CellMesh)((k21*dx(w2)+k22*(1+dy(w2))+k23*dz(w2)))/volumecell;
+
+real k23cell = int3d(CellMesh)((k21*dx(w3)+k23*(1+dz(w3))+k22*dy(w3)))/volumecell;
+
+real k31cell = int3d(CellMesh)((k32*dy(w1)+k31*(1+dx(w1))+k33*dz(w1)))/volumecell;
+
+real k32cell = int3d(CellMesh)((k31*dx(w2)+k32*(1+dy(w2))+k33*dz(w2)))/volumecell;
+
+real k33cell = int3d(CellMesh)((k31*dx(w3)+k33*(1+dz(w3))+k32*dy(w3)))/volumecell;
+
+cout << " K* = " << endl;
+cout << k11cell << " ; " << k12cell << " ; " << k13cell << endl;
+cout << k21cell << " ; " << k22cell << " ; " << k23cell << endl;
+cout << k31cell << " ; " << k32cell << " ; " << k33cell << endl;

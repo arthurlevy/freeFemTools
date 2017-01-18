@@ -1,0 +1,100 @@
+-- FreeFem++ v  3.430000 (date  1 f√©vr. 2016 11:55:28)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue 
+    1 : // Mesh Import
+    2 :
+    3 : load "gmsh"(load: loadLibary gmsh = 0);
+    4 : load "msh3"(load: loadLibary msh3 = 0)
+    5 :
+    6 : verbosity = 0;
+    7 : mesh3 CellMesh = gmshload3("PeriodicCell.msh");
+    8 :
+    9 : plot(CellMesh);
+   10 :
+   11 : // Thermal properties
+   12 :
+   13 : real regionmatrix       = 1;
+   14 : real regionfibres       = 2;
+   15 :
+   16 : real kfibres = 5.0;     // W.m^-1.K^-1
+   17 : real kmatrix = 0.2;     // W.m^-1.K^-1
+   18 :
+   19 : // Heterogeneous conductivity tensor
+   20 :
+   21 : fespace ConductTensor(CellMesh,P0);
+   22 : ConductTensor k11,k12,k13,k21,k22,k23,k31,k32,k33;
+   23 :
+   24 : k11 = kfibres*(region==regionfibres)+kmatrix*(region==regionmatrix);
+   25 : k12 = 0;
+   26 : k13 = 0;
+   27 :
+   28 : k21 = 0;
+   29 : k22 = kfibres*(region==regionfibres)+kmatrix*(region==regionmatrix);
+   30 : k23 = 0;
+   31 :
+   32 : k31 = 0;
+   33 : k32 = 0;
+   34 : k33 = kfibres*(region==regionfibres)+kmatrix*(region==regionmatrix);
+   35 :
+   36 : // Finite element space of P1 function over the periodic cell
+   37 :
+   38 : fespace FEcell(CellMesh,P1,periodic = [[1,y,z],[3,y,z],[2,x,z],[4,x,z],[∏$5,x,y],[6,x,y]]);
+   39 :
+   40 : // Declaration of the searched functions wi and the test function ww
+   41 :
+   42 : FEcell w1,w2,w3,ww;
+   43 :
+   44 : // Computation of the different functions wi, solutions of the "cell-pro∏$blem"
+   45 :
+   46 : solve calculw1(w1,ww, solver = GMRES) =
+   47 :                          int3d(CellMesh)(k11*dx(w1)*dx(ww)+k12*dy(w1)*dx∏$(ww)+k13*dz(w1)*dx(ww))
+   48 :                         +int3d(CellMesh)(k21*dx(w1)*dy(ww)+k22*dy(w1)*dy∏$(ww)+k23*dz(w1)*dy(ww))
+   49 :                         +int3d(CellMesh)(k31*dx(w1)*dz(ww)+k32*dy(w1)*dz∏$(ww)+k33*dz(w1)*dz(ww))
+   50 :                         +int3d(CellMesh)(k11*dx(ww)+k21*dy(ww)+k31*dz(ww∏$))
+   51 :                         +int3d(CellMesh)(w1*ww)
+   52 :                         ;
+   53 :
+   54 : solve calculw2(w2,ww, solver = GMRES) =
+   55 :                          int3d(CellMesh)(k11*dx(w2)*dx(ww)+k12*dy(w2)*dx∏$(ww)+k13*dz(w2)*dx(ww))
+   56 :                         +int3d(CellMesh)(k21*dx(w2)*dy(ww)+k22*dy(w2)*dy∏$(ww)+k23*dz(w2)*dy(ww))
+   57 :                         +int3d(CellMesh)(k31*dx(w2)*dz(ww)+k32*dy(w2)*dz∏$(ww)+k33*dz(w2)*dz(ww))
+   58 :                         +int3d(CellMesh)(k12*dx(ww)+k22*dy(ww)+k32*dz(ww∏$))
+   59 :                         +int3d(CellMesh)(w2*ww)
+   60 :                         ;
+   61 :
+   62 : solve calculw3(w3,ww, solver = GMRES) =
+   63 :                          int3d(CellMesh)(k11*dx(w3)*dx(ww)+k12*dy(w3)*dx∏$(ww)+k13*dz(w3)*dx(ww))
+   64 :                         +int3d(CellMesh)(k21*dx(w3)*dy(ww)+k22*dy(w3)*dy∏$(ww)+k23*dz(w3)*dy(ww))
+   65 :                         +int3d(CellMesh)(k31*dx(w3)*dz(ww)+k32*dy(w3)*dz∏$(ww)+k33*dz(w3)*dz(ww))
+   66 :                         +int3d(CellMesh)(k13*dx(ww)+k23*dy(ww)+k33*dz(ww∏$))
+   67 :                         +int3d(CellMesh)(w3*ww)
+   68 :                         ;
+   69 :
+   70 : // Computation of the effective conductivity tensor components
+   71 :
+   72 : real volumecell = int3d(CellMesh)(1.0);
+   73 :
+   74 : real k11cell = int3d(CellMesh)((k11*(1+dx(w1))+k12*dy(w1)+k13*dz(w1)))/v∏$olumecell;
+   75 :
+   76 : real k12cell = int3d(CellMesh)((k12*(1+dy(w2))+k11*dx(w2)+k13*dz(w2)))/v∏$olumecell;
+   77 :
+   78 : real k13cell = int3d(CellMesh)((k13*(1+dz(w3))+k11*dx(w3)+k12*dy(w3)))/v∏$olumecell;
+   79 :
+   80 : real k21cell = int3d(CellMesh)((k22*dy(w1)+k21*(1+dx(w1)+k23*dz(w1))))/v∏$olumecell;
+   81 :
+   82 : real k22cell = int3d(CellMesh)((k21*dx(w2)+k22*(1+dy(w2))+k23*dz(w2)))/v∏$olumecell;
+   83 :
+   84 : real k23cell = int3d(CellMesh)((k21*dx(w3)+k23*(1+dz(w3))+k22*dy(w3)))/v∏$olumecell;
+   85 :
+   86 : real k31cell = int3d(CellMesh)((k32*dy(w1)+k31*(1+dx(w1))+k33*dz(w1)))/v∏$olumecell;
+   87 :
+   88 : real k32cell = int3d(CellMesh)((k31*dx(w2)+k32*(1+dy(w2))+k33*dz(w2)))/v∏$olumecell;
+   89 :
+   90 : real k33cell = int3d(CellMesh)((k31*dx(w3)+k33*(1+dz(w3))+k32*dy(w3)))/v∏$olumecell;
+   91 :
+   92 : cout << " K* = " << endl;
+   93 : cout << k11cell << " ; " << k12cell << " ; " << k13cell << endl;
+   94 : cout << k21cell << " ; " << k22cell << " ; " << k23cell << endl;
+   95 : cout << k31cell << " ; " << k32cell << " ; " << k33cell << endl; sizesta∏$ck + 1024 =7208  ( 6184 )
+ 
+Unable to open file PeriodicCell.msh
+ try getConsole \\STOCKC\Commun TTMI\FreeFemExamples\testCases\AsymptoticExpansi∏$onHomogenization\3DEffectiveConductivity\3DEffectiveThermalConductivity.edp

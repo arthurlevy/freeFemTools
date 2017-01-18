@@ -1,0 +1,31 @@
+-- FreeFem++ v  3.300000 (date Thu Apr 24 08:30:16 GMT 2014)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue
+    1 : load "gmsh"(load: loadLibary gmsh = 0) load: gmsh
+ load: gmsh
+;       // Load the GMSH package in FreeFem++
+    2 : load "msh3"(load: loadLibary msh3 = 0) load: msh3
+                // Load the 3Dmesh package in FreeFem++
+    3 :
+    4 : mesh3 ImportedMesh = gmshload3("Mesh.msh")Load mesh given by GMSH
+;       // Import and mesh the .msh generated mesh in FreeFem++
+    5 :
+    6 : plot(ImportedMesh);     // Plot the imported mesh
+    7 :
+    8 : // To check the periodic compatibility of the mesh
+    9 :
+   10 : fespace FEcell(ImportedMesh,P1,periodic = [[2,y,z],[3,y,z],[2,x,z],[4,x,z],[5,x,y],[6,x,y]]);
+   11 :  sizestack + 1024 =1200  ( 176 )
+ 
+1318 vertices
+00
+closing file 5496 2288
+5496 tetrahedrons
+2288 triangles
+7784 numElements
+  current line = 10
+Exec error : Periodic 3d:  the both number of face is not the same
+   -- number :1
+Exec error : Periodic 3d:  the both number of face is not the same
+   -- number :1
+ err code 7 ,  mpirank 0
+ try getConsole X:\FreeFemExamples\testCases\GMSH2FreeFem-3D\Tut3\3D-Mesh-Import.edp
