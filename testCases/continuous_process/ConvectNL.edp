@@ -1,0 +1,78 @@
+
+mesh Th=square(10,20);
+real vx = 1;
+real eps = 1e-6;
+
+real leftCondition = 3;
+
+real k = 0.001;//artificial diffusion
+
+
+
+macro Grad(T) [ dx(T),  dy(T)  ]//
+
+
+
+// computes a square of the mesh element dimension and stores it in Vh field h.
+macro MeshSizecomputation(Th,Vh,h)
+{
+  Vh u,v;
+	real[int] count(Vh.ndof);
+	varf vmeshsizen(u,v)=int2d(Th)(v);
+	varf vedgecount(u,v)=int2d(Th)(v/area);
+	count=vedgecount(0,Vh);
+	h[]=0.;
+	h[]=vmeshsizen(0,Vh);
+	h[]=h[]./count;
+} //
+
+fespace Vh(Th,P1);
+Vh A,AA,dA, he, tausupg, f,sensib;
+
+//impose Dirichlet BC on first guess:
+A = leftCondition;
+
+// compute the sludge factor for supg
+MeshSizecomputation(Th,Vh,he)
+tausupg = 1/2 * sqrt(he)/vx;
+
+plot(tausupg, wait=1);
+
+
+real err=1;
+for(int n=0; n< 20; n++) // Newton Loop
+{
+
+	//updating fields
+	f = -A;
+
+	sensib = -1;
+
+	//checking for convergence
+	err = dA[].linfty;
+	cout << n << " err = " << err <<endl;
+	if(n>0 && err<eps) break;
+    
+    
+    	//defining variational forms
+        solve myproblem(dA,AA) =
+            int2d(Th) (vx * dx(dA) * AA    + tausupg * dx(dA) * vx * vx * dx(AA)
+                      - sensib *dA * AA - tausupg * dA * sensib * vx * dx(AA)
+                      + dx(dA)*k*dx(AA))
+            - int2d(Th)(vx * dx(A) * AA + tausupg * dx(A) * vx*vx *dx(AA)
+                        - f * AA - tausupg * f * vx * dx(AA)
+                        +dx(A) * k * dx(AA))
+
+            + on (4, dA=0);
+          
+	A[]-=dA[];
+
+	}           
+
+
+plot(A,wait=1);
+
+Vh analytical = leftCondition*exp(-x/vx);
+
+
+plot(analytical,wait=1);
