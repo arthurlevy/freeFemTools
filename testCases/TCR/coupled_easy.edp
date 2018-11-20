@@ -1,0 +1,61 @@
+//two meshes in contact at x=1
+mesh meshleft=square(8,2);
+mesh meshright=square(8,3,[x+1,y]);
+
+// FE spaces
+fespace spaceleft(meshleft,P1);
+fespace spaceright(meshright,P1);
+spaceleft uleft,uuleft;
+spaceright uright,uuright;
+
+macro grad(field)[dx(field),dy(field)]//2D gradient
+
+
+real C = 2; // conductance=1/RTC
+
+
+
+
+////////VARIATIONAL FORMS
+
+varf ll(uleft,uuleft) = -int2d(meshleft) ( grad(uleft)'*grad(uuleft) )
+							+ on(4,uleft = 3 )     // dirichlet BC
+ 							- int1d(meshleft,2)(C * uleft *uuleft);    //rtc boundary
+
+
+varf lr(uleft,uuright) =   int1d(meshleft, 2 )(C *uleft * uuright);
+
+varf rr(uright, uuright) = -int2d(meshright) ( grad(uright)'*grad(uuright) )
+							+ on(2, uright = 1)
+ 							- int1d(meshright,4)(C * uright *uuright);
+
+varf rl(uright,uuleft) =   int1d(meshright, 4) (C*uright * uuleft);
+
+
+
+/////ASSEMBLING VECTOR
+real[int] R1 = ll(0,spaceleft);
+real[int] R2 = rr(0,spaceright);
+
+real[int] R = [R1,R2];
+
+//////ASSEMBLING MATRIX
+matrix Kll = ll(spaceleft,spaceleft);
+matrix Krr = rr(spaceright,spaceright);
+
+//cross terms
+matrix Klr = lr(spaceleft,spaceright);
+matrix Krl = rl(spaceright,spaceleft);
+
+//concatenate
+matrix K = [  [Kll, Krl],
+							[Klr, Krr]    ];
+
+
+//solve
+set(K, solver=UMFPACK);
+real[int] X  = K^-1*R;
+
+//update fields
+[uleft[],uright[]] = X;
+plot(uleft,uright,wait=true);
