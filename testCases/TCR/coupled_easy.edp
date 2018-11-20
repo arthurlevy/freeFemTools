@@ -10,18 +10,12 @@ spaceright uright,uuright;
 
 macro grad(field)[dx(field),dy(field)]//2D gradient
 
-
 real C = 2; // conductance=1/RTC
 
-
-
-
 ////////VARIATIONAL FORMS
-
 varf ll(uleft,uuleft) = -int2d(meshleft) ( grad(uleft)'*grad(uuleft) )
 							+ on(4,uleft = 3 )     // dirichlet BC
  							- int1d(meshleft,2)(C * uleft *uuleft);    //rtc boundary
-
 
 varf lr(uleft,uuright) =   int1d(meshleft, 2 )(C *uleft * uuright);
 
@@ -30,7 +24,6 @@ varf rr(uright, uuright) = -int2d(meshright) ( grad(uright)'*grad(uuright) )
  							- int1d(meshright,4)(C * uright *uuright);
 
 varf rl(uright,uuleft) =   int1d(meshright, 4) (C*uright * uuleft);
-
 
 
 /////ASSEMBLING VECTOR
@@ -50,7 +43,6 @@ matrix Krl = rl(spaceright,spaceleft);
 //concatenate
 matrix K = [  [Kll, Krl],
 							[Klr, Krr]    ];
-
 
 //solve
 set(K, solver=UMFPACK);
